@@ -3,8 +3,7 @@ import pool from '../db/pool';
 import * as fs from 'fs';
 import * as path from 'path';
 import { GeminiService } from './gemini.service';
-
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
+import { PDFParse } from 'pdf-parse';
 
 @Injectable()
 export class DocumentsService {
@@ -135,26 +134,11 @@ export class DocumentsService {
         return '';
       }
 
-      const data = new Uint8Array(fs.readFileSync(absolutePath));
-
-      const pdf = await pdfjsLib.getDocument({
-        data,
-        disableFontFace: true,
-        useSystemFonts: false,
-      }).promise;
-
-      let fullText = '';
-
-      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const content = await page.getTextContent();
-
-        const pageText = content.items
-          .map((item: any) => ('str' in item ? item.str : ''))
-          .join(' ');
-
-        fullText += pageText + '\n';
-      }
+      const dataBuffer = fs.readFileSync(absolutePath);
+      const parser = new PDFParse({ data: dataBuffer });
+      const parsed = await parser.getText();
+      const fullText = parsed.text || '';
+      await parser.destroy();
 
       console.log('[PDF] Extracted chars:', fullText.length);
       return fullText.trim();
